@@ -1,0 +1,203 @@
+#include <stdint.h>
+#include <stdbool.h>
+#include "inc/hw_memmap.h"
+#include "driverlib/gpio.h"
+#include "driverlib/sysctl.h"
+# include "inc/tm4c123gh6pm.h"
+# include "inc/hw_types.h"
+# include "driverlib/interrupt.h"
+# include "driverlib/timer.h"
+int saat=19;
+int dakika=34;
+int saniye=00;
+int gün=11;
+int ay=11;
+int yýl=2018;
+int günyaz=7;
+char* matris [1][8];
+//lcd ayar baþlangýcý
+void pulseLCD(void);
+void Lcd_Tek_Karakter_Yaz(char, int);
+void Lcd_SatirveSutunaGit(char, char); // Lcd_SatirveSutunaGit
+void Lcd_Temizle(void); //Lcd_Temizle
+void Lcd_init(void); //Lcd_init
+
+#define RS GPIO_PIN_4 // Pin 5
+#define EN GPIO_PIN_5 // Pin 6
+#define D4 GPIO_PIN_0 // Pin 23
+#define D5 GPIO_PIN_1 // Pin 24
+#define D6 GPIO_PIN_2 // Pin 25
+#define D7 GPIO_PIN_3 // Pin 26
+void pulseLCD()
+{
+    // Go Low -> High -> Low
+    GPIOPinWrite(GPIO_PORTE_BASE, EN, 0);
+    GPIOPinWrite(GPIO_PORTE_BASE, EN, EN);
+    GPIOPinWrite(GPIO_PORTE_BASE, EN, 0);
+}
+void Lcd_Tek_Karakter_Yaz(char byteToSend, int isData)
+{
+    if (isData)
+        GPIOPinWrite(GPIO_PORTE_BASE, RS,RS);
+    else
+        GPIOPinWrite(GPIO_PORTE_BASE, RS,0);
+    SysCtlDelay(400);
+    GPIOPinWrite(GPIO_PORTD_BASE, D7 | D6 | D5 | D4, byteToSend >>4);
+    pulseLCD();
+    GPIOPinWrite(GPIO_PORTD_BASE, D7 | D6 | D5 | D4, byteToSend);
+    pulseLCD();
+}
+void Lcd_SatirveSutunaGit(char row, char col)
+{
+    char address;
+
+    if (row == 0)
+        address = 0;
+    else if (row==1)
+        address = 0x40;
+    else if (row==2)
+        address = 0x14;
+    else if (row==3)
+        address = 0x54;
+    else
+        address = 0;
+
+    address |= col;
+
+    Lcd_Tek_Karakter_Yaz(0x80 | address, 0);
+}
+void Lcd_Temizle(void)
+{
+    Lcd_Tek_Karakter_Yaz(0x01, 0); // Clear screen
+    Lcd_Tek_Karakter_Yaz(0x02, 0); // Back to home
+    SysCtlDelay(30000);
+}
+void Lcd_Komut(char *text)
+{
+    char *c;
+    c = text;
+    while ((c != 0) && (*c != 0))
+    {
+        Lcd_Tek_Karakter_Yaz(*c,1);
+        c++;
+    }
+}
+void Lcd_init(void) // Lcd_init
+{
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
+    GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE,  D7 | D6 | D5 | D4);
+    GPIOPinTypeGPIOOutput(GPIO_PORTE_BASE, RS | EN);
+    GPIOPinWrite(GPIO_PORTD_BASE, D7 | D6 | D5 | D4 ,0);
+    GPIOPinWrite(GPIO_PORTE_BASE, RS | EN ,0);
+    SysCtlDelay(10000);
+    GPIOPinWrite(GPIO_PORTE_BASE, RS,0);
+    SysCtlDelay(15000);
+    GPIOPinWrite(GPIO_PORTD_BASE, D7 | D6 | D5 | D4, 0b0010);
+    pulseLCD();
+    GPIOPinWrite(GPIO_PORTD_BASE, D7 | D6 | D5 | D4, 0b0010);
+    pulseLCD();
+    Lcd_Tek_Karakter_Yaz(0x28,0);        // Set two lines
+    Lcd_Tek_Karakter_Yaz(0x0C, 0);       // görünmez kursör
+    Lcd_Tek_Karakter_Yaz(0x06, 0);      // Set insert mode
+    Lcd_Temizle();
+}
+//lcd ayar bitiþ
+void timerkesmefonksiyonu ( void );
+int main(void)
+{
+    SysCtlClockSet(SYSCTL_SYSDIV_8|SYSCTL_USE_PLL|SYSCTL_XTAL_16MHZ|SYSCTL_OSC_MAIN);
+    SysCtlPeripheralEnable ( SYSCTL_PERIPH_TIMER0 );
+    TimerConfigure ( TIMER0_BASE , TIMER_CFG_PERIODIC );
+    TimerLoadSet ( TIMER0_BASE , TIMER_A , SysCtlClockGet ()-1);
+    IntEnable ( INT_TIMER0A );
+    TimerIntEnable ( TIMER0_BASE , TIMER_TIMA_TIMEOUT );
+    IntMasterEnable ();
+    TimerEnable ( TIMER0_BASE , TIMER_A );
+    TimerIntRegister ( TIMER0_BASE , TIMER_A , timerkesmefonksiyonu );
+        Lcd_init();
+
+        while(1) {
+                    }
+}
+void timerkesmefonksiyonu ( void )
+{
+    matris [0][1]="PAZARTESi";
+    matris [0][2]="SALI";
+    matris [0][3]="CARSAMBA";
+    matris [0][4]="PERSEMBE";
+    matris [0][5]="CUNA";
+    matris [0][6]="CUMARTESi";
+    matris [0][7]="PAZAR";
+    TimerIntClear ( TIMER0_BASE , TIMER_TIMA_TIMEOUT );
+    saniye++;
+        if(saniye==60)
+        {
+            saniye=0;
+            dakika++;
+                if(dakika==60)
+                {
+                    dakika=0;
+                    saat++;
+                   if(saat==24)
+                   {
+                       saat=0;
+                       gün++;
+                       günyaz++;
+                       if(günyaz==8)
+                       {günyaz=1;}
+                       if(gün==30)
+                       {
+                           gün=0;
+                           ay++;
+                           if(ay==12)
+                           {
+                               ay=0;
+                               yýl++;
+                           }
+                       }
+                   }
+                }
+        }
+        //SAAT YAZDIRMA
+        Lcd_SatirveSutunaGit(0,7);
+        Lcd_Tek_Karakter_Yaz((saniye%10)+48, 1);
+        Lcd_SatirveSutunaGit(0,6);
+        Lcd_Tek_Karakter_Yaz(((saniye-(saniye%10))/10)+48, 1);
+        Lcd_SatirveSutunaGit(0,5);
+        Lcd_Tek_Karakter_Yaz(58,1);                  //: yazar
+        Lcd_SatirveSutunaGit(0,4);
+        Lcd_Tek_Karakter_Yaz((dakika%10)+48, 1);
+        Lcd_SatirveSutunaGit(0,3);
+        Lcd_Tek_Karakter_Yaz(((dakika-(dakika%10))/10)+48,1);
+        Lcd_SatirveSutunaGit(0,2);
+        Lcd_Tek_Karakter_Yaz(58,1);                 //: yazar
+        Lcd_SatirveSutunaGit(0,1);
+        Lcd_Tek_Karakter_Yaz((saat%10)+48,1);
+        Lcd_SatirveSutunaGit(0,0);
+        Lcd_Tek_Karakter_Yaz(((saat-(saat%10))/10)+48,1);
+        //GÜN YAZDIRMA
+        Lcd_SatirveSutunaGit(1,0);
+        Lcd_Komut(matris[0][günyaz]);
+        //TARÝH YAZDIRMA
+        Lcd_SatirveSutunaGit(0,11);
+        Lcd_Tek_Karakter_Yaz((gün%10)+48, 1);
+        Lcd_SatirveSutunaGit(0,12);
+        Lcd_Tek_Karakter_Yaz(((gün-(gün%10))/10)+48,1);
+        Lcd_SatirveSutunaGit(0,13);
+        Lcd_Tek_Karakter_Yaz(47,1);                  /// yazar
+        Lcd_SatirveSutunaGit(0,14);
+        Lcd_Tek_Karakter_Yaz((ay%10)+48, 1);
+        Lcd_SatirveSutunaGit(0,15);
+        Lcd_Tek_Karakter_Yaz(((ay-(ay%10))/10)+48,1);
+        //YIL YAZDIRMA
+        Lcd_SatirveSutunaGit(1,15);
+        Lcd_Tek_Karakter_Yaz((yýl%10)+48,1);
+        Lcd_SatirveSutunaGit(1,14);
+        Lcd_Tek_Karakter_Yaz((((yýl-(yýl%10))/10)%10)+48,1);
+        Lcd_SatirveSutunaGit(1,13);
+        Lcd_Tek_Karakter_Yaz((yýl/100)%10+48,1);
+        Lcd_SatirveSutunaGit(1,12);
+        Lcd_Tek_Karakter_Yaz((yýl/1000)%10+48,1);
+}
+
