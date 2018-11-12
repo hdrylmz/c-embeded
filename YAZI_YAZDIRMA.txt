@@ -1,0 +1,114 @@
+#include <stdint.h>
+#include <stdbool.h>
+#include "inc/hw_memmap.h"
+#include "driverlib/gpio.h"
+#include "driverlib/sysctl.h"
+
+void pulseLCD(void);
+void Lcd_Tek_Karakter_Yaz(char, int);
+void Lcd_SatirveSutunaGit(char, char); // Lcd_SatirveSutunaGit
+void Lcd_Temizle(void); //Lcd_Temizle
+void Lcd_init(void); //Lcd_init
+void Lcd_Komut(char*); // Lcd_Komut
+void cursorOffLCD(void);
+
+#define FALSE 0
+#define TRUE 1
+#define RS GPIO_PIN_4 // Pin 5
+#define EN GPIO_PIN_5 // Pin 6
+#define D4 GPIO_PIN_0 // Pin 23
+#define D5 GPIO_PIN_1 // Pin 24
+#define D6 GPIO_PIN_2 // Pin 25
+#define D7 GPIO_PIN_3 // Pin 26
+void pulseLCD()
+{
+    // Go Low -> High -> Low
+    GPIOPinWrite(GPIO_PORTE_BASE, EN, 0);
+    GPIOPinWrite(GPIO_PORTE_BASE, EN, EN);
+    GPIOPinWrite(GPIO_PORTE_BASE, EN, 0);
+}
+//
+// Send data byte in 4 bit mode
+// High nibble is sent first
+//
+
+void Lcd_Tek_Karakter_Yaz(char byteToSend, int isData)
+{
+    if (isData)
+    GPIOPinWrite(GPIO_PORTE_BASE, RS,RS);       //RS=1 YAP YAZI YAZACAÐIZ
+    else
+    GPIOPinWrite(GPIO_PORTE_BASE, RS,0);        //RS=0 YAP KOMUT GELECEK
+    SysCtlDelay(400);
+    GPIOPinWrite(GPIO_PORTD_BASE, D7 | D6 | D5 | D4, byteToSend >>4);
+    pulseLCD();
+    GPIOPinWrite(GPIO_PORTD_BASE, D7 | D6 | D5 | D4, byteToSend);
+    pulseLCD();
+}
+void Lcd_SatirveSutunaGit(char row, char col)
+{
+    char address;
+
+    if (row == 0)
+        address = 0;
+    else if (row==1)
+        address = 0x40;
+    else if (row==2)
+        address = 0x14;
+    else if (row==3)
+        address = 0x54;
+    else
+        address = 0;
+    address |= col;
+    Lcd_Tek_Karakter_Yaz(0x80 | address, FALSE);
+}
+void Lcd_Temizle(void)
+{
+    Lcd_Tek_Karakter_Yaz(0x01, FALSE); // Clear screen
+    Lcd_Tek_Karakter_Yaz(0x02, FALSE); // Back to home
+    SysCtlDelay(30000);
+}
+void cursorOffLCD(void) {
+    Lcd_Tek_Karakter_Yaz(0x0C, FALSE);
+}
+void Lcd_init(void) // Lcd_init
+{
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
+    GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE,  D7 | D6 | D5 | D4);
+    GPIOPinTypeGPIOOutput(GPIO_PORTE_BASE, RS | EN);
+    GPIOPinWrite(GPIO_PORTD_BASE, D7 | D6 | D5 | D4 ,0);
+    GPIOPinWrite(GPIO_PORTE_BASE, RS | EN ,0);
+    SysCtlDelay(10000);
+    GPIOPinWrite(GPIO_PORTE_BASE, RS,0);
+    SysCtlDelay(15000);
+    GPIOPinWrite(GPIO_PORTD_BASE, D7 | D6 | D5 | D4, 0b0010);
+    pulseLCD();
+    GPIOPinWrite(GPIO_PORTD_BASE, D7 | D6 | D5 | D4, 0b0010);
+    pulseLCD();
+    Lcd_Tek_Karakter_Yaz(0x28,FALSE);  // Set two lines
+    cursorOffLCD();       // Cursor invisible
+    Lcd_Tek_Karakter_Yaz(0x06, FALSE); // Set insert mode
+    Lcd_Temizle();
+}
+void Lcd_Komut(char *text)
+{
+    char *c;
+    c = text;
+    while ((c != 0) && (*c != 0))
+    {
+        Lcd_Tek_Karakter_Yaz(*c, TRUE);
+        c++;
+    }
+}
+int main(void)
+{
+    SysCtlClockSet(SYSCTL_SYSDIV_8|SYSCTL_USE_PLL|SYSCTL_XTAL_16MHZ|SYSCTL_OSC_MAIN);
+        Lcd_init();
+        while(1) {
+            Lcd_Komut("yazý 1");
+            Lcd_SatirveSutunaGit(1,0);
+            Lcd_Komut("yazý 2");
+            SysCtlDelay(10000000);
+            Lcd_Temizle();
+        }
+}
